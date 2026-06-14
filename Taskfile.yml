@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://taskfile.dev/schema.json
+
+version: '3'
+
+vars:
+  PY: .venv/bin/python3
+
+tasks:
+  model:
+    desc: "Set model size (0.5B, 1.5B, 3B) or a fine-tuned checkpoint from models/"
+    summary: |
+      Size:        task model -- 0.5
+                   task model -- 1.5
+                   task model -- 3
+                   task model -- 7
+      Checkpoint:  task model -- Qwen2.5-Coder-0.5B_seed0
+    cmds:
+      - "{{.PY}} scripts/nb_params.py model {{.CLI_ARGS}}"
+
+  dataset-hash:
+    desc: "Pin the dataset revision SHA across all notebooks"
+    summary: |
+      Example:  task dataset-hash -- 4d26c13bf8473067db611fce495ce4dd27639c0a
+    cmds:
+      - "{{.PY}} scripts/nb_params.py dataset-hash {{.CLI_ARGS}}"
+
+  dataset:
+    desc: "Set the seed number (0, 1, 2) in training and evaluation notebooks"
+    summary: |
+      Example:  task dataset -- 1
+    cmds:
+      - "{{.PY}} scripts/nb_params.py dataset {{.CLI_ARGS}}"
+
+  status:
+    desc: "Show current model, eval model, dataset hash, and seed"
+    cmds:
+      - "{{.PY}} scripts/nb_params.py status"
+    silent: true
