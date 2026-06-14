@@ -10,16 +10,15 @@ tasks:
     cmds:
       - task: status
 
-  model:
-    desc: "Set model size (0.5B, 1.5B, 3B) or a fine-tuned checkpoint from models/"
+  basemodel:
+    desc: "Set the base Qwen2.5-Coder model size (0.5B, 1.5B, 3B, 7B)"
     summary: |
-      Size:        task model -- 0.5
-                   task model -- 1.5
-                   task model -- 3
-                   task model -- 7
-      Checkpoint:  task model -- Qwen2.5-Coder-0.5B_seed0
+      task basemodel -- 0.5
+      task basemodel -- 1.5
+      task basemodel -- 3
+      task basemodel -- 7
     cmds:
-      - "{{.PY}} scripts/nb_params.py model {{.CLI_ARGS}}"
+      - "{{.PY}} scripts/nb_params.py basemodel {{.CLI_ARGS}}"
 
   dataset-hash:
     desc: "Pin the dataset revision SHA across all notebooks"
