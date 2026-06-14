@@ -1,7 +1,7 @@
 [project]
 name = "thesis"
 version = "0.1.0"
-description = "Add your description here"
+description = "Scaling study: fine-tuning Qwen2.5-Coder to compile C → LLVM IR at -O3"
 requires-python = ">=3.12"
 dependencies = [
     "datasets>=5.0.0",
