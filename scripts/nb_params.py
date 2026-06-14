@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""Manages shared parameters via settings.json."""
+"""Manages shared parameters via .env."""
 
-import json, re, sys
+import re, sys
 from pathlib import Path
 
-ROOT          = Path(__file__).parent.parent
-SETTINGS_FILE = ROOT / "settings.json"
-MODELS_DIR    = ROOT / "models"
+ROOT       = Path(__file__).parent.parent
+ENV_FILE   = ROOT / ".env"
+MODELS_DIR = ROOT / "models"
 
 SIZE_MAP = {
     "0.5": "Qwen/Qwen2.5-Coder-0.5B", "0.5b": "Qwen/Qwen2.5-Coder-0.5B",
@@ -19,13 +19,19 @@ _STEM_TO_HF = {v.split("/")[-1]: v for v in SIZE_MAP.values()}
 
 
 def load_settings():
-    if not SETTINGS_FILE.exists():
-        sys.exit(f"error: {SETTINGS_FILE} not found")
-    return json.loads(SETTINGS_FILE.read_text())
+    if not ENV_FILE.exists():
+        sys.exit(f"error: {ENV_FILE} not found\nCopy .env.example to .env first.")
+    env = {}
+    for line in ENV_FILE.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith('#') and '=' in line:
+            k, _, v = line.partition('=')
+            env[k.strip()] = v.strip()
+    return env
 
 
 def save_settings(s):
-    SETTINGS_FILE.write_text(json.dumps(s, indent=2) + "\n")
+    ENV_FILE.write_text(''.join(f"{k}={v}\n" for k, v in s.items()))
 
 
 # ── commands ────────────────────────────────────────────────────────────────

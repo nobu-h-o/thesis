@@ -4,4 +4,4 @@ models
 .idea/
 data/
 results/
-settings.json
+.env
