@@ -6,6 +6,10 @@ vars:
   PY: .venv/bin/python3
 
 tasks:
+  default:
+    cmds:
+      - task: status
+
   model:
     desc: "Set model size (0.5B, 1.5B, 3B) or a fine-tuned checkpoint from models/"
     summary: |
@@ -30,6 +34,33 @@ tasks:
       Example:  task dataset -- 1
     cmds:
       - "{{.PY}} scripts/nb_params.py dataset {{.CLI_ARGS}}"
+
+  split:
+    desc: "Set the dataset split name used by dataset-generation notebooks"
+    summary: |
+      Example:  task split -- train_real_compilable
+    cmds:
+      - "{{.PY}} scripts/nb_params.py split {{.CLI_ARGS}}"
+
+  limit:
+    desc: "Set the row limit for dataset-generation (default 3000)"
+    summary: |
+      Example:  task limit -- 3000
+    cmds:
+      - "{{.PY}} scripts/nb_params.py limit {{.CLI_ARGS}}"
+
+  download-c-dataset:
+    desc: "Download a C dataset split from HuggingFace into data/input/<split>/"
+    vars:
+      SPLIT:
+        sh: 'printf "input split (ex. train_real_compilable): " >&2 && read v < /dev/tty && echo "${v:-train_real_compilable}"'
+      REVISION:
+        sh: 'printf "input hash (ex. 093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae): " >&2 && read v < /dev/tty && echo "${v:-093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae}"'
+    env:
+      SPLIT: '{{.SPLIT}}'
+      REVISION: '{{.REVISION}}'
+    cmds:
+      - bash setup.sh
 
   status:
     desc: "Show current model, eval model, dataset hash, and seed"

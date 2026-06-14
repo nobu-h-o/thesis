@@ -13,10 +13,9 @@
 
 set -euo pipefail
 
-SPLIT="train_real_compilable"
+SPLIT="${SPLIT:-train_real_compilable}"
 REPO="jordiae/exebench"
-# Pinned commit SHA ("added O3 stuff") — record this in your methods section.
-REVISION="093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae"
+REVISION="${REVISION:-093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae}"
 URL="https://huggingface.co/datasets/${REPO}/resolve/${REVISION}/${SPLIT}.tar.gz"
 
 KEEP_TARBALL=0   # set to 1 to keep the .tar.gz after extraction

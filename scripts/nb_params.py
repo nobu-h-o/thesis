@@ -1,20 +1,13 @@
 #!/usr/bin/env python3
-"""Manages shared parameters across project notebooks."""
+"""Manages shared parameters via settings.json."""
 
 import json, re, sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
+ROOT          = Path(__file__).parent.parent
+SETTINGS_FILE = ROOT / "settings.json"
+MODELS_DIR    = ROOT / "models"
 
-TRAIN_NBS = [
-    ROOT / "notebooks/fine-tuning/train.ipynb",
-    ROOT / "notebooks/fine-tuning/train_smoke.ipynb",
-]
-EVAL_NB   = ROOT / "notebooks/evaluation/evaluation.ipynb"
-UPLOAD_NB = ROOT / "notebooks/dataset-generation/upload.ipynb"
-MODELS_DIR = ROOT / "models"
-
-# index (1/2/3) and size string (0.5B/1.5B/3B/7B) → HuggingFace model ID
 SIZE_MAP = {
     "0.5": "Qwen/Qwen2.5-Coder-0.5B", "0.5b": "Qwen/Qwen2.5-Coder-0.5B",
     "1.5": "Qwen/Qwen2.5-Coder-1.5B", "1.5b": "Qwen/Qwen2.5-Coder-1.5B",
@@ -22,73 +15,35 @@ SIZE_MAP = {
     "7":   "Qwen/Qwen2.5-Coder-7B",   "7b":   "Qwen/Qwen2.5-Coder-7B",
 }
 
-
-def load_nb(path):
-    return json.loads(path.read_text())
+_STEM_TO_HF = {v.split("/")[-1]: v for v in SIZE_MAP.values()}
 
 
-def save_nb(path, data):
-    path.write_text(json.dumps(data, indent=1, ensure_ascii=False) + "\n")
+def load_settings():
+    if not SETTINGS_FILE.exists():
+        sys.exit(f"error: {SETTINGS_FILE} not found")
+    return json.loads(SETTINGS_FILE.read_text())
 
 
-def update_nb_var(path, pattern, replacement_fn):
-    """Replace lines matching pattern in every cell. Returns True if anything changed."""
-    data = load_nb(path)
-    changed = False
-    for cell in data["cells"]:
-        for i, line in enumerate(cell["source"]):
-            m = re.match(pattern, line)
-            if m:
-                new_line = replacement_fn(m)
-                if new_line != line:
-                    cell["source"][i] = new_line
-                    changed = True
-    if changed:
-        save_nb(path, data)
-    return changed
-
-
-def read_nb_var(path, pattern):
-    """Return the first capture group of the first matching line in any cell."""
-    for cell in load_nb(path)["cells"]:
-        for line in cell["source"]:
-            m = re.match(pattern, line)
-            if m:
-                return m.group(1)
-    return None
+def save_settings(s):
+    SETTINGS_FILE.write_text(json.dumps(s, indent=2) + "\n")
 
 
 # ── commands ────────────────────────────────────────────────────────────────
 
 def cmd_model(arg):
     key = arg.lower()
+    s = load_settings()
 
     if key in SIZE_MAP:
-        hf_path    = SIZE_MAP[key]
-        model_stem = hf_path.split("/")[-1]   # e.g. "Qwen2.5-Coder-0.5B"
-
-        # MODEL = "Qwen/..." in training notebooks
-        pat  = r'^(MODEL\s*=\s*")([^"]+)("[^\n]*\n?)'
-        repl = lambda m, p=hf_path: m.group(1) + p + m.group(3)
-        for nb in TRAIN_NBS:
-            update_nb_var(nb, pat, repl)
-
-        # MODEL_NAME = "Qwen2.5-..." (stem only) in evaluation notebook
-        eval_pat  = r'^(MODEL_NAME\s*=\s*")([^"]+)("[^\n]*\n?)'
-        eval_repl = lambda m, s=model_stem: m.group(1) + s + m.group(3)
-        update_nb_var(EVAL_NB, eval_pat, eval_repl)
-
-        print(f"model → {hf_path}")
-
+        s["MODEL"] = SIZE_MAP[key]
+        save_settings(s)
+        print(f"model → {s['MODEL']}")
     else:
-        # Treat as a fine-tuned checkpoint name from models/
         checkpoint = arg
-
-        # Parse optional "_seed{N}" suffix so we can also update SEED in eval
         seed_m = re.search(r'_seed(\d+)$', checkpoint)
         if seed_m:
             model_name = checkpoint[:seed_m.start()]
-            seed       = seed_m.group(1)
+            seed       = int(seed_m.group(1))
         else:
             model_name = checkpoint
             seed       = None
@@ -98,54 +53,59 @@ def cmd_model(arg):
             if checkpoint not in existing:
                 print(f"warning: '{checkpoint}' not found in {MODELS_DIR}")
 
-        eval_pat  = r'^(MODEL_NAME\s*=\s*")([^"]+)("[^\n]*\n?)'
-        eval_repl = lambda m, s=model_name: m.group(1) + s + m.group(3)
-        update_nb_var(EVAL_NB, eval_pat, eval_repl)
-
+        hf_id = _STEM_TO_HF.get(model_name, "Qwen/" + model_name)
+        s["MODEL"] = hf_id
         if seed is not None:
-            seed_pat  = r'^(SEED\s*=\s*)(\d+)([^\n]*\n?)'
-            seed_repl = lambda m, v=seed: m.group(1) + v + m.group(3)
-            update_nb_var(EVAL_NB, seed_pat, seed_repl)
-            print(f"eval model → {model_name}  seed → {seed}")
+            s["SEED"] = seed
+            print(f"model → {hf_id}  seed → {seed}")
         else:
-            print(f"eval model → {model_name}")
+            print(f"model → {hf_id}")
+        save_settings(s)
 
 
 def cmd_dataset_hash(sha):
-    pat  = r'^(REVISION\s*=\s*")([^"]+)("[^\n]*\n?)'
-    repl = lambda m, h=sha: m.group(1) + h + m.group(3)
-    for nb in TRAIN_NBS + [EVAL_NB, UPLOAD_NB]:
-        update_nb_var(nb, pat, repl)
+    s = load_settings()
+    s["REVISION"] = sha
+    save_settings(s)
     print(f"dataset-hash → {sha}")
 
 
+def cmd_split(name):
+    s = load_settings()
+    s["SPLIT"] = name
+    save_settings(s)
+    print(f"split → {name}")
+
+
 def cmd_dataset(number):
-    """Set SEED — the numbered axis of the scaling sweep (0, 1, 2)."""
     try:
         seed = int(number)
     except ValueError:
         sys.exit(f"error: dataset number must be an integer, got '{number}'")
-
-    pat  = r'^(SEED\s*=\s*)(\d+)([^\n]*\n?)'
-    repl = lambda m, v=str(seed): m.group(1) + v + m.group(3)
-    for nb in [TRAIN_NBS[0], EVAL_NB]:
-        update_nb_var(nb, pat, repl)
+    s = load_settings()
+    s["SEED"] = seed
+    save_settings(s)
     print(f"dataset (seed) → {seed}")
 
 
+def cmd_limit(number):
+    try:
+        limit = int(number)
+    except ValueError:
+        sys.exit(f"error: limit must be an integer, got '{number}'")
+    s = load_settings()
+    s["LIMIT"] = limit
+    save_settings(s)
+    print(f"limit → {limit}")
+
+
 def cmd_status():
-    train_nb = TRAIN_NBS[0]
-
-    model      = read_nb_var(train_nb, r'^MODEL\s*=\s*"([^"]+)"')
-    revision   = read_nb_var(train_nb, r'^REVISION\s*=\s*"([^"]+)"')
-    seed       = read_nb_var(train_nb, r'^SEED\s*=\s*(\d+)')
-    model_name = read_nb_var(EVAL_NB,  r'^MODEL_NAME\s*=\s*"([^"]+)"')
-
-    print(f"model        : {model}")
-    print(f"eval model   : {model_name}")
-    print(f"dataset hash : {revision}")
-    print(f"seed         : {seed}")
-
+    s = load_settings()
+    print(f"model        : {s['MODEL']}")
+    print(f"seed         : {s['SEED']}")
+    print(f"dataset hash : {s['REVISION']}")
+    print(f"split        : {s.get('SPLIT', '(not set)')}")
+    print(f"limit        : {s.get('LIMIT', 3000)}")
     if MODELS_DIR.exists():
         checkpoints = sorted(d.name for d in MODELS_DIR.iterdir() if d.is_dir())
         if checkpoints:
@@ -156,9 +116,11 @@ def cmd_status():
 
 USAGE = """\
 usage:
-  task model       -- <size|checkpoint>   size: 1/2/3 or 0.5B/1.5B/3B/7B
-  task dataset     -- <seed>              seed axis: 0, 1, 2
-  task dataset-hash -- <sha>             pin dataset revision
+  task model        -- <size|checkpoint>   size: 0.5/1.5/3/7 or 0.5B/1.5B/3B/7B
+  task dataset      -- <seed>              seed axis: 0, 1, 2
+  task dataset-hash -- <sha>              pin dataset revision
+  task split        -- <name>             dataset split for generation notebooks
+  task limit        -- <n>               row limit (default 3000)
   task status
 """
 
@@ -180,6 +142,14 @@ def main():
         if len(sys.argv) < 3:
             sys.exit("usage: nb_params.py dataset <number>")
         cmd_dataset(sys.argv[2])
+    elif cmd == "split":
+        if len(sys.argv) < 3:
+            sys.exit("usage: nb_params.py split <name>")
+        cmd_split(sys.argv[2])
+    elif cmd == "limit":
+        if len(sys.argv) < 3:
+            sys.exit("usage: nb_params.py limit <n>")
+        cmd_limit(sys.argv[2])
     elif cmd == "status":
         cmd_status()
     else:
