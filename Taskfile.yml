@@ -56,9 +56,15 @@ tasks:
       - "{{.PY}} scripts/download_dataset.py {{.SPLIT}}"
 
   clear:
-    desc: "Clear all notebook outputs in-place"
+    desc: "Strip outputs and metadata from modified notebooks"
     cmds:
-      - find notebooks -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;
+      - git status --porcelain | grep '\.ipynb$' | awk '{print $NF}' | xargs -r .venv/bin/nbstripout
+
+  setup:
+    desc: "Install dependencies and git hooks (run after cloning)"
+    cmds:
+      - uv sync
+      - .venv/bin/nbstripout --install --attributes .gitattributes
 
   status:
     desc: "Show current model, eval model, dataset hash, and seed"
