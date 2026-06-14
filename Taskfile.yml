@@ -55,6 +55,11 @@ tasks:
     cmds:
       - "{{.PY}} scripts/download_dataset.py {{.SPLIT}}"
 
+  clear:
+    desc: "Clear all notebook outputs in-place"
+    cmds:
+      - find notebooks -name "*.ipynb" -exec jupyter nbconvert --clear-output --inplace {} \;
+
   status:
     desc: "Show current model, eval model, dataset hash, and seed"
     cmds:
