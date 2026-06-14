@@ -2,6 +2,8 @@
 
 version: '3'
 
+dotenv: ['.env']
+
 vars:
   PY: .venv/bin/python3
 
@@ -50,16 +52,8 @@ tasks:
 
   download-c-dataset:
     desc: "Download a C dataset split from HuggingFace into data/input/<split>/"
-    vars:
-      SPLIT:
-        sh: 'printf "input split (ex. train_real_compilable): " >&2 && read v < /dev/tty && echo "${v:-train_real_compilable}"'
-      REVISION:
-        sh: 'printf "input hash (ex. 093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae): " >&2 && read v < /dev/tty && echo "${v:-093085f8558cfd53de8e2c8f4ccc7b9e73dc22ae}"'
-    env:
-      SPLIT: '{{.SPLIT}}'
-      REVISION: '{{.REVISION}}'
     cmds:
-      - bash setup.sh
+      - "{{.PY}} scripts/download_dataset.py {{.SPLIT}}"
 
   status:
     desc: "Show current model, eval model, dataset hash, and seed"

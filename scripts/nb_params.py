@@ -4,6 +4,8 @@
 import sys
 from pathlib import Path
 
+from dotenv import dotenv_values, set_key
+
 ROOT       = Path(__file__).parent.parent
 ENV_FILE   = ROOT / ".env"
 MODELS_DIR = ROOT / "models"
@@ -12,17 +14,11 @@ MODELS_DIR = ROOT / "models"
 def load_settings():
     if not ENV_FILE.exists():
         sys.exit(f"error: {ENV_FILE} not found\nCopy .env.example to .env first.")
-    env = {}
-    for line in ENV_FILE.read_text().splitlines():
-        line = line.strip()
-        if line and not line.startswith('#') and '=' in line:
-            k, _, v = line.partition('=')
-            env[k.strip()] = v.strip()
-    return env
+    return dotenv_values(ENV_FILE)
 
 
-def save_settings(s):
-    ENV_FILE.write_text(''.join(f"{k}={v}\n" for k, v in s.items()))
+def save(key, value):
+    set_key(ENV_FILE, key, str(value))
 
 
 # ── commands ────────────────────────────────────────────────────────────────
@@ -38,23 +34,17 @@ def cmd_basemodel(arg):
     key = arg.lower()
     if key not in SIZE_MAP:
         sys.exit(f"error: unknown size '{arg}'. Choose from: 0.5, 1.5, 3, 7 (or with B suffix)")
-    s = load_settings()
-    s["BASEMODEL"] = SIZE_MAP[key]
-    save_settings(s)
-    print(f"basemodel → {s['BASEMODEL']}")
+    save("BASEMODEL", SIZE_MAP[key])
+    print(f"basemodel → {SIZE_MAP[key]}")
 
 
 def cmd_dataset_hash(sha):
-    s = load_settings()
-    s["REVISION"] = sha
-    save_settings(s)
+    save("REVISION", sha)
     print(f"dataset-hash → {sha}")
 
 
 def cmd_split(name):
-    s = load_settings()
-    s["SPLIT"] = name
-    save_settings(s)
+    save("SPLIT", name)
     print(f"split → {name}")
 
 
@@ -63,9 +53,7 @@ def cmd_dataset(number):
         seed = int(number)
     except ValueError:
         sys.exit(f"error: dataset number must be an integer, got '{number}'")
-    s = load_settings()
-    s["SEED"] = seed
-    save_settings(s)
+    save("SEED", seed)
     print(f"dataset (seed) → {seed}")
 
 
@@ -74,17 +62,15 @@ def cmd_limit(number):
         limit = int(number)
     except ValueError:
         sys.exit(f"error: limit must be an integer, got '{number}'")
-    s = load_settings()
-    s["LIMIT"] = limit
-    save_settings(s)
+    save("LIMIT", limit)
     print(f"limit → {limit}")
 
 
 def cmd_status():
     s = load_settings()
-    print(f"basemodel    : {s['BASEMODEL']}")
-    print(f"seed         : {s['SEED']}")
-    print(f"dataset hash : {s['REVISION']}")
+    print(f"basemodel    : {s.get('BASEMODEL', '(not set)')}")
+    print(f"seed         : {s.get('SEED', '(not set)')}")
+    print(f"dataset hash : {s.get('REVISION', '(not set)')}")
     print(f"split        : {s.get('SPLIT', '(not set)')}")
     print(f"limit        : {s.get('LIMIT', 3000)}")
     if MODELS_DIR.exists():
@@ -97,7 +83,7 @@ def cmd_status():
 
 USAGE = """\
 usage:
-  task basemodel    -- <hf-model-id>         e.g. Qwen/Qwen2.5-Coder-0.5B
+  task basemodel    -- <size>                0.5, 1.5, 3, 7 (or with B suffix)
   task dataset      -- <seed>                seed axis: 0, 1, 2
   task dataset-hash -- <sha>                 pin dataset revision
   task split        -- <name>                dataset split for generation notebooks
@@ -113,7 +99,7 @@ def main():
 
     if cmd == "basemodel":
         if len(sys.argv) < 3:
-            sys.exit("usage: nb_params.py basemodel <hf-model-id>")
+            sys.exit("usage: nb_params.py basemodel <size>")
         cmd_basemodel(sys.argv[2])
     elif cmd == "dataset-hash":
         if len(sys.argv) < 3:
